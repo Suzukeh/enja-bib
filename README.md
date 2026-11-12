@@ -430,7 +430,7 @@ Licensed under MIT.
 
 JPSJ の規定（[Instructions for Manuscript Preparation](https://www.jps.or.jp/books/files/jpsj_manus_e.pdf)）に沿った特徴：
 
-- タイトルを著者と誌名の間に置く（`[entry.article]` の `title` 行を外せば JPSJ 公式どおりタイトル無しになる）
+- 論文タイトルは書かない（`[entry.article]` に `title` 行を足せば著者と誌名の間に表示される）
 - 著者は `T. Sasaki` 形式。2名は `A and B`、3名以上は `A, B, and C`（Oxford カンマ）
 - 誌名は ISO 略号（`shortjournal` を優先し、無ければ `journal`）
 - 巻は太字、`Vol.` / `No.` は付けない
