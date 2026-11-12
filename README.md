@@ -363,3 +363,54 @@ Licensed under MIT.
   )
 )
 ```
+
+---
+
+## このフォークでの変更点
+
+上流（[tkrhsmt/enja-bib](https://github.com/tkrhsmt/enja-bib)）からの差分です。Zotero の BibLaTeX 出力をそのまま読めるようにするための変更が中心です。
+
+### BibLaTeX のフィールド名を解決する
+
+`bib-tex.typ` の `normalize-fields` が、BibLaTeX 名を BibTeX 名へ寄せます。空のときだけ埋めるので、classic 名を明示していればそちらが優先されます。
+
+| BibLaTeX | BibTeX |
+| --- | --- |
+| `journaltitle` | `journal` |
+| `date`（`2000-04-15`） | `year`（`2000`） |
+| `location` | `address` |
+| `eventtitle` | `booktitle` |
+| `eid` | `pages`（`pages` が無いときのみ） |
+| `institution` | `school`（`thesis` / `mastersthesis` / `phdthesis`） |
+| `school` | `institution`（`report`） |
+
+`date` から `month` は作りません。スタイルが月を出力する設定だと `10 1978` のように数値がそのまま出てしまうためです。
+
+### `report` / `thesis` のエントリ型を追加
+
+`junsrt.toml` と `plain.toml` に `[entry.report]`（`techreport` を複製）と `[entry.thesis]`（`mastersthesis` を複製）を追加しました。Zotero は `@report` と `@thesis` を出力しますが、上流のスタイルには定義が無く、コンパイル時に `type none has no method 'at'` で落ちていました。
+
+### 数式パディングの停止（`flag:` 引数）
+
+`bibliography-list` に `flag: none` を追加しました。呼び出し側の `state` を渡すと、参考文献の組版中だけ `true` になります。
+
+```typst
+#let in-bibliography = state("in-bibliography", false)
+#show math.equation.where(block: false): it => context {
+  if in-bibliography.get() { it } else { h(0.25em, weak: true) + it + h(0.25em, weak: true) }
+}
+
+#bibliography-list(flag: in-bibliography, ..bib-file(read("refs.bib")))
+```
+
+文献は `eval(..., mode: "markup")` で描画されるため、文書全体の「インライン数式の前後に空白を足す」ルールが参考文献中の化学式にも当たり、`AlV2O4 .` のように余分な空白が入ります。Typst の show ルールは入れ子の `it => it` では打ち消せない（外側が再適用される）ため、state で切り替えます。
+
+### `junsrt.toml` の調整
+
+- `sentence-case-titles = false` — 既定の `true` はタイトルを文頭大文字化し、`CuIr2S4` を `cuir2s4` にしてしまうため。
+- 著者を `author-set4`（`M. Okawa` 形式）に統一。
+- `[entry.online]` に `url` を追加（`set-url` でリンク化）。
+
+### テスト
+
+`test/runtest.typ` に `test-normalize-biblatex-fields` を追加。`tinymist test test/runtest.typ --root .` で全12件が通ります。

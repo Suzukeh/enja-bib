@@ -205,3 +205,60 @@
     )
   ] != none)
 }
+
+// ---------------------------------------------------------------------------
+// bib-tex.typ: BibLaTeX → BibTeX のフィールド名解決
+// ---------------------------------------------------------------------------
+
+#let test-normalize-biblatex-fields() = {
+  // journaltitle → journal、date → year。既存の journal / year は上書きしない。
+  let zotero = (
+    entry_type: "article",
+    fields: (
+      lang: "en",
+      journaltitle: "Physical Review B",
+      date: "2000-04-15",
+      title: "Title",
+    ),
+  )
+  let n = normalize-fields(zotero)
+  assert(n.fields.journal == "Physical Review B")
+  assert(n.fields.year == "2000")
+  // month は合成しない（スタイルが数値の月をそのまま出力してしまうため）。
+  assert(n.fields.at("month", default: "") == "")
+
+  // 明示された classic フィールドが優先される。
+  let classic = (
+    entry_type: "article",
+    fields: (lang: "en", journal: "J. Phys.", journaltitle: "Ignored", year: "1999", date: "2000-01-01"),
+  )
+  let c = normalize-fields(classic)
+  assert(c.fields.journal == "J. Phys.")
+  assert(c.fields.year == "1999")
+
+  // location → address、eventtitle → booktitle。
+  let conf = (
+    entry_type: "inproceedings",
+    fields: (lang: "ja", location: "Tokyo", eventtitle: "年会", title: "題名"),
+  )
+  let cf = normalize-fields(conf)
+  assert(cf.fields.address == "Tokyo")
+  assert(cf.fields.booktitle == "年会")
+
+  // eid は pages が無いときだけ pages になる。
+  let with-eid = (entry_type: "article", fields: (lang: "en", eid: "074709", title: "T"))
+  assert(normalize-fields(with-eid).fields.pages == "074709")
+  let with-pages = (entry_type: "article", fields: (lang: "en", eid: "074709", pages: "1-2", title: "T"))
+  assert(normalize-fields(with-pages).fields.pages == "1-2")
+
+  // thesis は institution を school に、report は school を institution に寄せる。
+  let thesis = (entry_type: "thesis", fields: (lang: "ja", institution: "UEC", title: "題名"))
+  assert(normalize-fields(thesis).fields.school == "UEC")
+  let report = (entry_type: "report", fields: (lang: "en", school: "NBS", title: "T"))
+  assert(normalize-fields(report).fields.institution == "NBS")
+
+  // date が年のみでも動く。
+  assert(split-date("1969") == "1969")
+  assert(split-date("2000-04") == "2000")
+  assert(split-date("") == "")
+}

@@ -255,6 +255,10 @@
   bib-vancouver-manual: "",
   hanging-indent: 2em,
   title: context if (text.lang == "ja") { [参考文献] } else { [Bibliography] },
+  // 呼び出し側の state を渡すと、参考文献の組版中だけ true になる。
+  // 数式の前後に空白を足す show ルールを持つ文書で、化学式などに
+  // 余分な空白が入るのを避けるために使う。
+  flag: none,
   ..body,
 ) = {
   if title != none {
@@ -263,6 +267,11 @@
 
   set par(first-line-indent: 0em)
   set par(leading: 1em)
+
+  // 呼び出し側から state を渡された場合、参考文献の組版中だけ true にする。
+  if flag != none {
+    flag.update(true)
+  }
 
   show figure.where(kind: "bib"): it => {
     align(left, it)
@@ -290,6 +299,7 @@
 ) = {
   let dict = load-bibliography(it, sentence-case-titles: style.sentence-case-titles).values().at(0)
   let dict = add-dict-lang(dict, lang)
+  let dict = normalize-fields(dict)
 
   let output_arr = ()
   let bib_element_function = get-element-function(style, dict)

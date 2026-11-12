@@ -36,6 +36,62 @@
   return biblist
 }
 
+//---------- BibLaTeX のフィールド名を BibTeX 名に解決する ---------- //
+// Zotero の BibLaTeX 出力（journaltitle / date / location / eventtitle）を
+// enja-bib が前提とする BibTeX 名（journal / year / address / booktitle）に寄せる。
+
+#let biblatex-aliases = (
+  journaltitle: "journal",
+  location: "address",
+  eventtitle: "booktitle",
+)
+
+// date（2000-04-15 / 2000-04 / 2000）から year を取り出す
+// 既存の参考文献は年月を出していないため month は使わない
+#let split-date(date) = {
+  if type(date) != str or date == "" { return "" }
+  date.split("-").at(0)
+}
+
+#let normalize-fields(biblist) = {
+  let fields = biblist.fields
+
+  // 別名フィールドを正規名へ移す（正規名が既にある場合は触らない）
+  for (from, to) in biblatex-aliases.pairs() {
+    if fields.at(from, default: "") != "" and fields.at(to, default: "") == "" {
+      fields.insert(to, fields.at(from))
+    }
+  }
+
+  // date → year（month は出力しない）
+  if fields.at("year", default: "") == "" {
+    let year = split-date(fields.at("date", default: ""))
+    if year != "" { fields.insert("year", year) }
+  }
+
+  // eid（記事番号）は pages が無いときだけ pages として扱う
+  if fields.at("pages", default: "") == "" and fields.at("eid", default: "") != "" {
+    fields.insert("pages", fields.at("eid"))
+  }
+
+  // thesis 系は institution を school として表示する
+  if biblist.entry_type in ("thesis", "mastersthesis", "phdthesis") {
+    if fields.at("school", default: "") == "" and fields.at("institution", default: "") != "" {
+      fields.insert("school", fields.at("institution"))
+    }
+  }
+
+  // report 系は institution をそのまま使う（techreport の定義に合わせる）
+  if biblist.entry_type == "report" {
+    if fields.at("institution", default: "") == "" and fields.at("school", default: "") != "" {
+      fields.insert("institution", fields.at("school"))
+    }
+  }
+
+  biblist.insert("fields", fields)
+  return biblist
+}
+
 //---------- 要素の関数を取得 ---------- //
 #let get-element-function(style, biblist) = {
   return style.entry.at(biblist.entry_type, default: none).at(biblist.fields.lang, default: none)
