@@ -262,3 +262,28 @@
   assert(split-date("2000-04") == "2000")
   assert(split-date("") == "")
 }
+
+// ---------------------------------------------------------------------------
+// JPSJ スタイル用の整形関数
+// ---------------------------------------------------------------------------
+
+#let test-jpsj-author-and-page() = {
+  // 3名以上は Oxford カンマ（最後の and の前にもカンマ）。
+  assert(author-set-jpsj(english-bib(), "author") == "J. P. de Smith J, A. Jones, and B. Brown")
+  // 2名は and のみ（カンマなし）。
+  assert(author-set-jpsj(english-bib(names: english-names.slice(0, 2)), "author") == "J. P. de Smith J and A. Jones")
+  // 1名。
+  assert(author-set-jpsj(english-bib(names: english-names.slice(0, 1)), "author") == "J. P. de Smith J")
+  // 日本語は詰めて並べる。
+  assert(author-set-jpsj(japanese-bib(), "author") == "山田太郎, 佐藤花子, 鈴木次郎")
+
+  // JPSJ は開始ページのみ。
+  assert(page-set-first(english-bib(), "pages") == "12")
+  assert(page-set-first(english-bib(fields: (pages: "12–18")), "pages") == "12")
+  assert(page-set-first(english-bib(fields: (pages: "074709")), "pages") == "074709")
+  assert(page-set-first(english-bib(fields: (pages: "")), "pages") == "")
+
+  // 誌名は shortjournal を優先する。
+  assert(journal-abbrev(english-bib(fields: (shortjournal: "Phys. Rev. B", journal: "Physical Review B")), "journal") == "Phys. Rev. B")
+  assert(journal-abbrev(english-bib(fields: (journal: "Physical Review B")), "journal") == "Physical Review B")
+}

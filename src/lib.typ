@@ -10,6 +10,7 @@
 #import "bib-setting-custom/bib-setting-jorsj.typ"
 #import "bib-setting-custom/bib-setting-tieice.typ"
 #import "bib-setting-custom/bib-setting-tipsj.typ"
+#import "bib-setting-custom/bib-setting-jpsj.typ"
 
 //add function
 #import "bib-style.typ": set-style, bib-init, bibliography-list, bib-tex, bib-file, bib-item, bib-cite-func

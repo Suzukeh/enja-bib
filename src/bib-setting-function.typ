@@ -38,6 +38,15 @@
   return biblist.fields.at(name, default: "")
 }
 
+// ---------- 誌名の略号を優先して返す関数 ---------- //
+// JPSJ は誌名を ISO 略号で書く。shortjournal があればそれを使い、
+// 無ければ journal（BibLaTeX なら journaltitle 由来）にフォールバックする。
+#let journal-abbrev(biblist, name) = {
+  let short = biblist.fields.at("shortjournal", default: "")
+  if short != "" { return short }
+  return biblist.fields.at(name, default: "")
+}
+
 // ---------- 項目内を太文字にして返す関数 ---------- //
 #let all-bold(biblist, name) = {
   return strong(biblist.fields.at(name, default: ""))
@@ -190,6 +199,49 @@
 // ---------- 項目を著者型にして返す関数(author-en7型) ---------- //
 #let author-set6(biblist, name) = {
   return make-author-set(biblist, name, author-ja, author-en7)
+}
+
+// ---------- JPSJ 形式の著者名（Oxford カンマ付き） ---------- //
+// JPSJ は "A, B, and C" のように最後の and の前にもカンマを置く。
+#let make-author-set-oxford(biblist, name, author-ja-func, author-en-func) = {
+  let author_arr = biblist
+    .parsed_names
+    .at(name, default: ())
+    .map(author => {
+      let authorsum = author.values().sum()
+      let check = (regex("[\p{scx:Han}\p{scx:Hira}\p{scx:Kana}]") in authorsum)
+
+      if check {
+        return author-ja-func(author)
+      } else {
+        return author-en-func(author)
+      }
+    })
+
+  if biblist.fields.lang == "ja" {
+    return author_arr.join(", ")
+  } else if author_arr.len() <= 1 {
+    return author_arr.join(", ")
+  } else if author_arr.len() == 2 {
+    // JPSJ も 2 名のときは "A and B"（カンマなし）
+    return author_arr.join(" and ")
+  } else {
+    return author_arr.slice(0, -1).join(", ") + ", and " + author_arr.last()
+  }
+}
+
+// ---------- JPSJ 形式の著者名（T. Sasaki 形式 + Oxford カンマ） ---------- //
+#let author-set-jpsj(biblist, name) = {
+  return make-author-set-oxford(biblist, name, author-ja, author-en5)
+}
+
+// ---------- 開始ページのみを返す（JPSJ は範囲を書かない） ---------- //
+#let page-set-first(biblist, name) = {
+  let pagestr = biblist.fields.at(name, default: "")
+  if pagestr == "" { return "" }
+  // "--" / "–" / "-" のいずれでも先頭だけ取る
+  let parts = pagestr.split(regex("--|–|-"))
+  return parts.at(0).trim()
 }
 
 // ---------- 項目をciteの著者型にして返す関数 ---------- //
@@ -390,6 +442,7 @@
   remove-space-r: remove-space-r,
   remove-space: remove-space,
   all-return: all-return,
+  journal-abbrev: journal-abbrev,
   all-bold: all-bold,
   all-emph: all-emph,
   author-en: author-en,
@@ -406,10 +459,12 @@
   author-set4: author-set4,
   author-set5: author-set5,
   author-set6: author-set6,
+  author-set-jpsj: author-set-jpsj,
   author-set-cite: author-set-cite,
   set-url: set-url,
   page-set: page-set,
   page-set-without-p: page-set-without-p,
+  page-set-first: page-set-first,
   bib-vancouver-manual-default: bib-vancouver-manual-default,
   bib-citet-default: bib-citet-default,
   bib-citep-default: bib-citep-default,

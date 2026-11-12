@@ -411,6 +411,39 @@ Licensed under MIT.
 - 著者を `author-set4`（`M. Okawa` 形式）に統一。
 - `[entry.online]` に `url` を追加（`set-url` でリンク化）。
 
+### JPSJ スタイル（`bib-setting-jpsj`）
+
+`jpsj.toml` を追加しました。J. Phys. Soc. Jpn. の参考文献書式に合わせています。
+
+```typst
+#import "@preview/enja-bib:0.2.0": *
+#import bib-setting-jpsj: *
+#show: bib-init
+```
+
+出力例：
+
+```
+[1] T. Sasaki, T. Yokoo, S. Katano, and J. Akimitsu, J. Phys. Soc. Jpn. 74, 267 (2005).
+[2] S. M. Sze, Physics of Semiconductor Devices (Wiley, New York, 1981) p. 55.
+```
+
+JPSJ の規定（[Instructions for Manuscript Preparation](https://www.jps.or.jp/books/files/jpsj_manus_e.pdf)）に沿った特徴：
+
+- 論文タイトルは書かない
+- 著者は `T. Sasaki` 形式。2名は `A and B`、3名以上は `A, B, and C`（Oxford カンマ）
+- 誌名は ISO 略号（`shortjournal` を優先し、無ければ `journal`）
+- 巻は太字、`Vol.` / `No.` は付けない
+- ページは開始ページのみ、`p.` は付けない
+- 年は括弧：`(2005).`
+- 引用順（`bib-sort-ref = true`）、引用した文献のみ
+
+このスタイル用に `bib-setting-function.typ` へ3つの関数を追加しました。
+
+- `author-set-jpsj` — `T. Sasaki` 形式 + Oxford カンマ
+- `page-set-first` — 範囲から開始ページだけを取り出す
+- `journal-abbrev` — `shortjournal` 優先のフォールバック
+
 ### テスト
 
-`test/runtest.typ` に `test-normalize-biblatex-fields` を追加。`tinymist test test/runtest.typ --root .` で全12件が通ります。
+`test/runtest.typ` に `test-normalize-biblatex-fields` と `test-jpsj-author-and-page` を追加。`tinymist test test/runtest.typ --root .` で全13件が通ります。
