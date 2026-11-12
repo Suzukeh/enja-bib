@@ -97,27 +97,244 @@
   return style.entry.at(biblist.entry_type, default: none).at(biblist.fields.lang, default: none)
 }
 
+//---------- LaTeX 表記を Typst に変換する ---------- //
+// Zotero は数式を含むタイトルを LaTeX 記法で書き出すことがある。
+// 実際の形は両端が \$ になる（Zotero が $ をエスケープするため）:
+//   Pressure-Induced ... in \$\{\textbackslash text\{CuIr\}\}_{2}...\$
+// 手で書いた場合は $...$ のこともある。どちらも受ける。
+
+// LaTeX のコマンド → Typst の数式表記。
+// 追加したいときはこの辞書に 1 行足すだけでよい。
+// 値が "" のものは中身をそのまま置く（\mathrm{abc} → abc）。
+// 値が "text" のものは数式内の文字列にする（\text{CuIr} → "CuIr"）。
+//   Typst の数式では {CuIr} がコードブロック扱いになり落ちるため。
+#let latex-commands = (
+  "text": "text",
+  "textrm": "text",
+  "textit": "text",
+  "textbf": "text",
+  "mathrm": "text",
+  "mathit": "text",
+  "mathbf": "bold",
+  "mathsf": "text",
+  "mathtt": "text",
+  "operatorname": "text",
+  "alpha": "alpha",
+  "beta": "beta",
+  "gamma": "gamma",
+  "delta": "delta",
+  "epsilon": "epsilon",
+  "varepsilon": "epsilon.alt",
+  "zeta": "zeta",
+  "eta": "eta",
+  "theta": "theta",
+  "kappa": "kappa",
+  "lambda": "lambda",
+  "mu": "mu",
+  "nu": "nu",
+  "xi": "xi",
+  "rho": "rho",
+  "sigma": "sigma",
+  "tau": "tau",
+  "phi": "phi",
+  "varphi": "phi.alt",
+  "chi": "chi",
+  "psi": "psi",
+  "omega": "omega",
+  "Gamma": "Gamma",
+  "Delta": "Delta",
+  "Theta": "Theta",
+  "Lambda": "Lambda",
+  "Sigma": "Sigma",
+  "Phi": "Phi",
+  "Psi": "Psi",
+  "Omega": "Omega",
+  "times": "times",
+  "pm": "plus.minus",
+  "mp": "minus.plus",
+  "approx": "approx",
+  "sim": "tilde.op",
+  "simeq": "tilde.eq",
+  "leq": "<=",
+  "le": "<=",
+  "geq": ">=",
+  "ge": ">=",
+  "neq": "!=",
+  "ne": "!=",
+  "infty": "infinity",
+  "cdot": "dot.op",
+  "cdots": "dots.c",
+  "ldots": "dots",
+  "circ": "circle.stroked.tiny",
+  "angstrom": "angstrom",
+  "degree": "degree",
+  "hbar": "planck.reduce",
+  "partial": "diff",
+  "nabla": "nabla",
+)
+
+// 名前の長い順に並べる（\text が \t に食われないように）
+#let sorted-latex-names = {
+  let out = ()
+  let rest = latex-commands.keys()
+  while rest.len() > 0 {
+    let longest = rest.at(0)
+    for n in rest {
+      if n.len() > longest.len() { longest = n }
+    }
+    out.push(longest)
+    rest = rest.filter(n => n != longest)
+  }
+  out
+}
+
+// 1 つの数式（$ を除いた中身）を Typst の数式文字列にする。
+#let latex-math-to-typst(body) = {
+  let s = body
+
+  // Zotero の二重エスケープを 1 段戻す（\textbackslash text\{CuIr\} → \text{CuIr}）
+  s = s.replace("\\textbackslash ", "\\")
+  s = s.replace("\\{", "{")
+  s = s.replace("\\}", "}")
+  s = s.replace("\\_", "_")
+
+  // \command{arg}
+  for name in sorted-latex-names {
+    let repl = latex-commands.at(name)
+    let pat = regex("\\\\" + name + "\{([^{}]*)\}")
+    while s.match(pat) != none {
+      s = s.replace(pat, m => {
+        let inner = m.captures.at(0)
+        if repl == "text" {
+          "\"" + inner + "\""
+        } else if repl == "" {
+          inner
+        } else {
+          repl + "(" + inner + ")"
+        }
+      })
+    }
+  }
+
+  // 引数なしの \command（後ろが英字でないもの）
+  for name in sorted-latex-names {
+    let repl = latex-commands.at(name)
+    let pat = regex("\\\\" + name + "([^a-zA-Z]|$)")
+    s = s.replace(pat, m => repl + m.captures.at(0))
+  }
+
+  // 残った \{ \} \_ を処理
+  s = s.replace("\\{", "{")
+  s = s.replace("\\}", "}")
+  s = s.replace("\\_", "_")
+
+  // Typst の数式では { } がコードブロック扱いになるため取り除く。
+  // 下付き・上付きの _ ^ はそのまま活かす。
+  s = s.replace("{", "")
+  s = s.replace("}", "")
+
+  s.trim()
+}
+
+// codepoints のインデックスをバイト位置に変換する
+#let cp-to-byte(text, cp-index) = {
+  let cps = text.codepoints()
+  let n = if cp-index > cps.len() { cps.len() } else { cp-index }
+  let out = 0
+  for i in range(n) {
+    out += cps.at(i).len()
+  }
+  out
+}
+
+// 数式の区切りを探す。text は「$ が素の状態」の文字列を渡すこと。
+// 日本語を含むので codepoints 単位で走査する（at(i) は文字境界で落ちる）。
+#let math-spans(text) = {
+  let spans = ()
+  let cps = text.codepoints()
+  let n = cps.len()
+  let i = 0
+  let start = -1
+  while i < n {
+    let c = cps.at(i)
+    if c == "\\" {
+      i += 2
+      continue
+    }
+    if c == "$" {
+      if start < 0 {
+        start = i
+      } else {
+        spans.push((start: start, end: i + 1))
+        start = -1
+      }
+    }
+    i += 1
+  }
+  spans
+}
+
+// フィールド文字列の中の数式を Typst の数式に変換する。
+// \$...\$ と $...$ の両方を受ける。
+#let latex-to-typst(text) = {
+  if type(text) != str { return text }
+
+  // まず \$ を $ に戻す（Zotero のエスケープを解除）。
+  let s = text.replace("\\$", "$")
+
+  let spans = math-spans(s)
+  if spans.len() == 0 { return text }
+
+  let out = ""
+  let pos = 0
+  for sp in spans {
+    let bstart = cp-to-byte(s, sp.start)
+    let bend = cp-to-byte(s, sp.end)
+    out += s.slice(pos, bstart)
+    let body = s.slice(cp-to-byte(s, sp.start + 1), cp-to-byte(s, sp.end - 1))
+    out += "$" + latex-math-to-typst(body) + "$"
+    pos = bend
+  }
+  out + s.slice(pos)
+}
+
 //---------- eval に渡す前に markup の特殊文字を無害化する ---------- //
 // 文献フィールドは eval(value, mode: "markup") で描画される。Zotero が
-// タイトルへ LaTeX の数式（$\{...\}）や # @ < ] をそのまま書き出すと、
-// それらが Typst の構文として解釈されてコンパイルが落ちる。
-// 表示は素の文字列にしたいので、特殊文字をエスケープした markup にする。
+// タイトルへ LaTeX の数式や # @ < ] をそのまま書き出すと、それらが
+// Typst の構文として解釈されてコンパイルが落ちる。
+// 数式は Typst の数式に変換し、残りはエスケープした markup にする。
 #let escape-markup(text) = {
   if type(text) != str { return text }
   let s = text
   s = s.replace("\\", "\\\\")
-  s = s.replace("$", "\$")
-  s = s.replace("#", "\#")
-  s = s.replace("@", "\@")
-  s = s.replace("<", "\<")
-  s = s.replace("[", "\[")
-  s = s.replace("]", "\]")
+  s = s.replace("$", "\\$")
+  s = s.replace("#", "\\#")
+  s = s.replace("@", "\\@")
+  s = s.replace("<", "\\<")
+  s = s.replace("[", "\\[")
+  s = s.replace("]", "\\]")
   s
 }
 
 // 文字列を安全に markup へ変換する
 #let to-markup(value) = {
-  if type(value) == str { eval(escape-markup(value), mode: "markup") } else { value }
+  if type(value) != str { return value }
+  let converted = latex-to-typst(value)
+  let spans = math-spans(converted)
+  if spans.len() == 0 {
+    return eval(escape-markup(converted), mode: "markup")
+  }
+  let out = ""
+  let pos = 0
+  for sp in spans {
+    let bstart = cp-to-byte(converted, sp.start)
+    let bend = cp-to-byte(converted, sp.end)
+    out += eval(escape-markup(converted.slice(pos, bstart)), mode: "markup")
+    out += eval(converted.slice(bstart, bend), mode: "markup")
+    pos = bend
+  }
+  out += eval(escape-markup(converted.slice(pos)), mode: "markup")
+  out
 }
 
 //---------- 文献リストを文献に変換 ---------- //

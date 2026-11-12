@@ -307,7 +307,42 @@
   // to-markup は文字列を markup へ、それ以外は素通しする。
   assert(to-markup(42) == 42)
   assert(to-markup("Plain") != none)
-  // Zotero が書き出した LaTeX 数式つきタイトルでも落ちない。
-  let zotero = "Pressure-Induced 18 K Superconductivity in ${\text{CuIr}}{2}{\mathrm{S}}{4}$"
+}
+
+// ---------------------------------------------------------------------------
+// bib-tex.typ: LaTeX 数式の変換
+// ---------------------------------------------------------------------------
+
+#let test-latex-conversion() = {
+  // バックスラッシュ 1 個（リテラルの 	 がタブになるのを避ける）
+  let bs = "\\"
+
+  // Zotero の二重エスケープ形を組み立てる
+  let zotero = "Phases in " + bs + "$" + bs + "{" + bs + "textbackslash text" + bs + "{CuIr" + bs + "}" + bs + "}" + bs + "_" + bs + "{2" + bs + "}" + bs + "{" + bs + "textbackslash mathrm" + bs + "{S" + bs + "}" + bs + "}" + bs + "_" + bs + "{4" + bs + "}" + bs + "$"
+
+  let conv = latex-to-typst(zotero)
+  // 数式になり、LaTeX のコマンドや波括弧は残らない
+  assert(conv.contains("$"))
+  assert(not conv.contains("textbackslash"))
+  assert(not conv.contains("{"))
+  assert(conv.contains("\"CuIr\""))
+  assert(conv.contains("\"S\""))
+
+  // 素の $...$ も変換できる
+  let conv2 = latex-to-typst("Energy gap $E_g$ of CuIr2S4")
+  assert(conv2.contains("$E_g$"))
+
+  // 数式が無ければ変化しない
+  assert(latex-to-typst("Plain title") == "Plain title")
+
+  // 数式の位置検出（\$ は区切りにしない）
+  assert(math-spans("a $x$ b").len() == 1)
+  assert(math-spans("no math").len() == 0)
+
+  // 日本語を含んでも落ちない
+  assert(math-spans("日本語 $x$ テスト").len() == 1)
+  assert(latex-to-typst("日本語 $x$ テスト").contains("$x$"))
+
+  // 数式として描画できる
   assert(to-markup(zotero) != none)
 }

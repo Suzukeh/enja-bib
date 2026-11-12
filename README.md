@@ -448,8 +448,36 @@ JPSJ の規定（[Instructions for Manuscript Preparation](https://www.jps.or.jp
 
 文献は `eval(value, mode: "markup")` で描画されるため、フィールドに Typst の構文文字が入るとコンパイルが落ちます。Zotero は数式を含むタイトルを LaTeX 記法のまま書き出すことがあり（例：`${	ext{CuIr}}{2}{\mathrm{S}}{4}$`）、その `$` が数式開始と解釈されて `unclosed delimiter` になります。
 
-`bib-tex.typ` の `escape-markup` が `\ $ # @ < [ ]` をエスケープし、`to-markup` 経由で描画します。LaTeX 記法自体は素の文字として表示されるので、その文献だけ手で直してください。
+`bib-tex.typ` は次の順で処理します。
+
+1. `latex-to-typst` — `$...$` / `\$...\$` の中身を Typst の数式へ変換する
+2. `escape-markup` — 数式の外側の `\ $ # @ < [ ]` をエスケープする
+3. `to-markup` — 数式部分はそのまま、外側はエスケープ済み markup として `eval` する
+
+LaTeX → Typst の対応は `latex-commands` 辞書にまとめてあります。追加したい記号があれば 1 行足すだけです。
+
+```typst
+#let latex-commands = (
+  "text": "text",      // → "..." （数式内の文字列）
+  "mathrm": "text",
+  "alpha": "alpha",
+  "times": "times",
+  // ...
+)
+```
+
+`	ext{CuIr}` は `"CuIr"` になります。Typst の数式では `{CuIr}` がコードブロック扱いになって `unknown variable` で落ちるため、文字列にする必要があります。波括弧は最終的に取り除かれ、`_` `^` は下付き・上付きとして残ります。
+
+実際の変換例：
+
+```
+入力: ...Phases in \$\{	extbackslash text\{CuIr\}\}\_{2}\{	extbackslash mathrm\{S\}\}\_{4}\$
+出力: ...Phases in $"CuIr"_2"S"_4$
+表示: ...Phases in CuIr₂S₄
+```
+
+日本語を含むフィールドでも落ちないよう、走査は `codepoints()` 単位で行い、`slice` にはバイト位置へ変換して渡します。
 
 ### テスト
 
-`test/runtest.typ` に `test-normalize-biblatex-fields`、`test-jpsj-author-and-page`、`test-escape-markup` を追加。`tinymist test test/runtest.typ --root .` で全14件が通ります。
+`test/runtest.typ` に `test-normalize-biblatex-fields`、`test-jpsj-author-and-page`、`test-escape-markup`、`test-latex-conversion` を追加。`tinymist test test/runtest.typ --root .` で全15件が通ります。
