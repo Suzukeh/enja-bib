@@ -478,6 +478,12 @@ LaTeX → Typst の対応は `latex-commands` 辞書にまとめてあります�
 
 日本語を含むフィールドでも落ちないよう、走査は `codepoints()` 単位で行い、`slice` にはバイト位置へ変換して渡します。
 
+### 参考文献内で文書の show ルールを止める
+
+`bibliography-list` は参考文献の figure に対して `show regex("."): it => it` を敷き、呼び出し側の文字列 show ルール（化学式や単位の置換）を無効にします。
+
+これが無いと、文書側の `show "CuRh2S4": [...]` のような規則が参考文献のテキストにも当たり、テキストが細かく分割されます。その結果、`fi` などの合字の ToUnicode が PDF に載らず、`Crystallographic` が `Crystallogra<化け>c` と抽出されます（表示は正常、コピー＆ペーストと検索が壊れる）。`set text(ligatures: false)` だけでは防げません。
+
 ### テスト
 
 `test/runtest.typ` に `test-normalize-biblatex-fields`、`test-jpsj-author-and-page`、`test-escape-markup`、`test-latex-conversion` を追加。`tinymist test test/runtest.typ --root .` で全15件が通ります。

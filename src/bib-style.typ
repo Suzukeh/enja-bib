@@ -274,6 +274,12 @@
   }
 
   show figure.where(kind: "bib"): it => {
+    // 文書側の文字列 show ルール（化学式や単位の置換）が参考文献にも当たると
+    // テキストが細かく分割され、合字の ToUnicode が PDF に載らず
+    // "Crystallographic" が "Crystallogra<化け>c" と抽出される。
+    // 参考文献では置換を止め、素のテキストとして組む。
+    show regex("."): it => it
+    set text(ligatures: false)
     align(left, it)
   }
 
