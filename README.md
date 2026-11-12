@@ -430,7 +430,7 @@ Licensed under MIT.
 
 JPSJ の規定（[Instructions for Manuscript Preparation](https://www.jps.or.jp/books/files/jpsj_manus_e.pdf)）に沿った特徴：
 
-- 論文タイトルは書かない
+- タイトルを著者と誌名の間に置く（`[entry.article]` の `title` 行を外せば JPSJ 公式どおりタイトル無しになる）
 - 著者は `T. Sasaki` 形式。2名は `A and B`、3名以上は `A, B, and C`（Oxford カンマ）
 - 誌名は ISO 略号（`shortjournal` を優先し、無ければ `journal`）
 - 巻は太字、`Vol.` / `No.` は付けない
@@ -444,6 +444,12 @@ JPSJ の規定（[Instructions for Manuscript Preparation](https://www.jps.or.jp
 - `page-set-first` — 範囲から開始ページだけを取り出す
 - `journal-abbrev` — `shortjournal` 優先のフォールバック
 
+### 文献フィールドのエスケープ
+
+文献は `eval(value, mode: "markup")` で描画されるため、フィールドに Typst の構文文字が入るとコンパイルが落ちます。Zotero は数式を含むタイトルを LaTeX 記法のまま書き出すことがあり（例：`${	ext{CuIr}}{2}{\mathrm{S}}{4}$`）、その `$` が数式開始と解釈されて `unclosed delimiter` になります。
+
+`bib-tex.typ` の `escape-markup` が `\ $ # @ < [ ]` をエスケープし、`to-markup` 経由で描画します。LaTeX 記法自体は素の文字として表示されるので、その文献だけ手で直してください。
+
 ### テスト
 
-`test/runtest.typ` に `test-normalize-biblatex-fields` と `test-jpsj-author-and-page` を追加。`tinymist test test/runtest.typ --root .` で全13件が通ります。
+`test/runtest.typ` に `test-normalize-biblatex-fields`、`test-jpsj-author-and-page`、`test-escape-markup` を追加。`tinymist test test/runtest.typ --root .` で全14件が通ります。

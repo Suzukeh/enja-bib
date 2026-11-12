@@ -97,6 +97,29 @@
   return style.entry.at(biblist.entry_type, default: none).at(biblist.fields.lang, default: none)
 }
 
+//---------- eval に渡す前に markup の特殊文字を無害化する ---------- //
+// 文献フィールドは eval(value, mode: "markup") で描画される。Zotero が
+// タイトルへ LaTeX の数式（$\{...\}）や # @ < ] をそのまま書き出すと、
+// それらが Typst の構文として解釈されてコンパイルが落ちる。
+// 表示は素の文字列にしたいので、特殊文字をエスケープした markup にする。
+#let escape-markup(text) = {
+  if type(text) != str { return text }
+  let s = text
+  s = s.replace("\\", "\\\\")
+  s = s.replace("$", "\$")
+  s = s.replace("#", "\#")
+  s = s.replace("@", "\@")
+  s = s.replace("<", "\<")
+  s = s.replace("[", "\[")
+  s = s.replace("]", "\]")
+  s
+}
+
+// 文字列を安全に markup へ変換する
+#let to-markup(value) = {
+  if type(value) == str { eval(escape-markup(value), mode: "markup") } else { value }
+}
+
 //---------- 文献リストを文献に変換 ---------- //
 #let bibtex-to-bib(year-doubling, biblist, element_function) = {
   let output_list_bef = () //出力リスト(仮)
@@ -188,12 +211,12 @@
     if type(value) == str {
       let tmp = value.split(year-doubling)
       if tmp.len() == 1 {
-        output_list_bef.push(eval(value, mode: "markup"))
+        output_list_bef.push(to-markup(value))
       } else {
-        output_list_bef.push(eval(tmp.at(0), mode: "markup"))
+        output_list_bef.push(to-markup(tmp.at(0)))
         outputlist.push(output_list_bef)
         output_list_bef = ()
-        output_list_bef.push(eval(tmp.at(1), mode: "markup"))
+        output_list_bef.push(to-markup(tmp.at(1)))
       }
     } else {
       output_list_bef.push(value)

@@ -287,3 +287,27 @@
   assert(journal-abbrev(english-bib(fields: (shortjournal: "Phys. Rev. B", journal: "Physical Review B")), "journal") == "Phys. Rev. B")
   assert(journal-abbrev(english-bib(fields: (journal: "Physical Review B")), "journal") == "Physical Review B")
 }
+
+// ---------------------------------------------------------------------------
+// bib-tex.typ: eval 前の markup エスケープ
+// ---------------------------------------------------------------------------
+
+#let test-escape-markup() = {
+  // 素の文字列はそのまま。
+  assert(escape-markup("Plain title") == "Plain title")
+  // Typst の構文として解釈される文字はエスケープされる。
+  assert(escape-markup("$x$") == "\$x\$")
+  assert(escape-markup("#hash") == "\#hash")
+  assert(escape-markup("@label") == "\@label")
+  assert(escape-markup("a < b") == "a \< b")
+  assert(escape-markup("[x]") == "\[x\]")
+  // 非文字列はそのまま返す。
+  assert(escape-markup(42) == 42)
+
+  // to-markup は文字列を markup へ、それ以外は素通しする。
+  assert(to-markup(42) == 42)
+  assert(to-markup("Plain") != none)
+  // Zotero が書き出した LaTeX 数式つきタイトルでも落ちない。
+  let zotero = "Pressure-Induced 18 K Superconductivity in ${\text{CuIr}}{2}{\mathrm{S}}{4}$"
+  assert(to-markup(zotero) != none)
+}
